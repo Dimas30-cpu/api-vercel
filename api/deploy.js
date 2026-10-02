@@ -26,7 +26,8 @@ async function uploadFile(buffer, digest) {
 }
 
 async function deploy(projectName,digest,size) {
-  const r=await fetch("https://api.vercel.com/v13/deployments",{
+  // FIX: Menambahkan ?skipAutoDetectionConfirmation=1 pada URL
+  const r=await fetch("https://api.vercel.com/v13/deployments?skipAutoDetectionConfirmation=1",{
     method:"POST",
     headers:{
       Authorization:`Bearer ${process.env.VERCEL_TOKEN}`,
@@ -35,7 +36,11 @@ async function deploy(projectName,digest,size) {
     body:JSON.stringify({
       name:projectName,
       target:"production",
-      files:[{file:"index.html",sha:digest,size}]
+      files:[{file:"index.html",sha:digest,size}],
+      // FIX: Menambahkan projectSettings (wajib untuk Vercel API terbaru)
+      projectSettings: {
+        framework: null
+      }
     })
   });
   const d=await r.json();
