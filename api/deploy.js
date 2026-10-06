@@ -2,10 +2,6 @@ const crypto = require("crypto");
 
 const MAX = 5 * 1024 * 1024;
 
-// Konfigurasi JSONBin (Dapat diatur via Environment Variable Vercel)
-const JSONBIN_ID = process.env.JSONBIN_ID || "67ca35dcad19ca34f815efc9";
-const JSONBIN_MASTER_KEY = process.env.JSONBIN_MASTER_KEY || "$2a$10$428S953/eP/v4f1fS7tG/.cI1U60cQO62n1VpC0a24/8u5x6gT3k2";
-
 function slugify(v) {
   return String(v || "").toLowerCase().trim()
     .replace(/[^a-z0-9-]+/g, "-")
@@ -23,10 +19,17 @@ function sha1(b) {
 
 // 1. Ambil Data Kredensial Admin dari JSONBin
 async function getJsonBinData() {
-  const r = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_ID}/latest`, {
+  const binId = process.env.JSONBIN_ID;
+  const masterKey = process.env.JSONBIN_MASTER_KEY;
+
+  if (!binId || !masterKey) {
+    throw new Error("JSONBIN_ID atau JSONBIN_MASTER_KEY belum diset di Environment Variable Vercel");
+  }
+
+  const r = await fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`, {
     method: "GET",
     headers: {
-      "X-Master-Key": JSONBIN_MASTER_KEY
+      "X-Master-Key": masterKey
     }
   });
   const d = await r.json();
@@ -36,11 +39,18 @@ async function getJsonBinData() {
 
 // 2. Update Data Kredensial Admin di JSONBin
 async function updateJsonBinData(data) {
-  const r = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_ID}`, {
+  const binId = process.env.JSONBIN_ID;
+  const masterKey = process.env.JSONBIN_MASTER_KEY;
+
+  if (!binId || !masterKey) {
+    throw new Error("JSONBIN_ID atau JSONBIN_MASTER_KEY belum diset di Environment Variable Vercel");
+  }
+
+  const r = await fetch(`https://api.jsonbin.io/v3/b/${binId}`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
-      "X-Master-Key": JSONBIN_MASTER_KEY,
+      "X-Master-Key": masterKey,
       "X-Bin-Versioning": "false"
     },
     body: JSON.stringify({
