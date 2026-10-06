@@ -17,7 +17,6 @@ function sha1(b) {
 // FUNGSI UTILITY JSONBIN
 // ==========================================
 
-// 1. Ambil Data Kredensial Admin dari JSONBin
 async function getJsonBinData() {
   const binId = process.env.JSONBIN_ID;
   const masterKey = process.env.JSONBIN_MASTER_KEY;
@@ -37,7 +36,6 @@ async function getJsonBinData() {
   return d.record;
 }
 
-// 2. Update Data Kredensial Admin di JSONBin
 async function updateJsonBinData(data) {
   const binId = process.env.JSONBIN_ID;
   const masterKey = process.env.JSONBIN_MASTER_KEY;
@@ -136,7 +134,9 @@ module.exports = async function(req, res) {
 
   if (req.method === "OPTIONS") return res.status(204).end();
 
-  const urlPath = req.url || "";
+  // Parsing Path URL dengan Aman (Mendukung Query Parameters)
+  const fullUrl = req.url || "";
+  const urlPath = fullUrl.split("?")[0];
 
   try {
     if (!process.env.VERCEL_TOKEN) throw new Error("VERCEL_TOKEN belum diset");
@@ -145,8 +145,8 @@ module.exports = async function(req, res) {
     // 1. ENDPOINT JSONBIN ADMIN (GET & PUT KREDENSIAL)
     // ---------------------------------------------------------
     
-    // GET /api/admin-config -> Mengambil data akun admin dari JSONBin
-    if (req.method === "GET" && urlPath.includes("/api/admin-config")) {
+    // GET /api/admin-config
+    if (req.method === "GET" && urlPath.includes("/admin-config")) {
       const binData = await getJsonBinData();
       return res.status(200).json({
         success: true,
@@ -154,8 +154,8 @@ module.exports = async function(req, res) {
       });
     }
 
-    // PUT /api/admin-config -> Mengubah username & password admin di JSONBin
-    if (req.method === "PUT" && urlPath.includes("/api/admin-config")) {
+    // PUT /api/admin-config
+    if (req.method === "PUT" && urlPath.includes("/admin-config")) {
       const b = req.body || {};
       if (!b.username || !b.password) {
         throw new Error("Username dan password tidak boleh kosong");
@@ -172,9 +172,9 @@ module.exports = async function(req, res) {
     }
 
     // ---------------------------------------------------------
-    // 2. ENDPOINT GET /api/projects (Pengecekan Daftar Proyek Vercel)
+    // 2. ENDPOINT GET /api/projects (Daftar Proyek Vercel)
     // ---------------------------------------------------------
-    if (req.method === "GET" && (urlPath.includes("/api/projects") || urlPath.endsWith("/projects"))) {
+    if (req.method === "GET" && (urlPath.includes("/projects") || urlPath.endsWith("/projects"))) {
       const r = await fetch("https://api.vercel.com/v9/projects", {
         method: "GET",
         headers: {
@@ -192,10 +192,11 @@ module.exports = async function(req, res) {
 
     // ---------------------------------------------------------
     // 3. ENDPOINT DELETE /api/projects/:name (Menghapus Proyek Vercel)
+    // FIX: Penanganan respons 204 / Body Kosong dari Vercel API
     // ---------------------------------------------------------
-    if (req.method === "DELETE" && urlPath.includes("/api/projects/")) {
+    if (req.method === "DELETE" && urlPath.includes("/projects/")) {
       const projectName = urlPath.split("/").pop();
-      if (!projectName) throw new Error("Nama project tidak ditemukan");
+      if (!projectName) throw new Error("Nama project tidak ditemukan dalam URL");
 
       const r = await fetch(`https://api.vercel.com/v9/projects/${projectName}`, {
         method: "DELETE",
@@ -203,9 +204,16 @@ module.exports = async function(req, res) {
           Authorization: `Bearer ${process.env.VERCEL_TOKEN}`
         }
       });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d?.error?.message || "Gagal menghapus proyek dari Vercel");
 
+      // Menangani status HTTP Non-OK
+      if (!r.ok) {
+        const errText = await r.text();
+        let errData = {};
+        try { errData = JSON.parse(errText); } catch(e) {}
+        throw new Error(errData?.error?.message || errData?.message || `Gagal menghapus proyek (HTTP ${r.status})`);
+      }
+
+      // Jika berhasil (Vercel merespons 204 No Content/200), kembalikan respons JSON yang valid
       return res.status(200).json({
         success: true,
         message: `Project ${projectName} berhasil dihapus`
@@ -262,7 +270,7 @@ module.exports = async function(req, res) {
     return res.status(405).json({ success: false, error: "Method Not Allowed" });
 
   } catch (e) {
-    console.error(e);
+    console.error("Backend Error:", e);
     return res.status(500).json({ success: false, error: e.message || "Internal server error" });
   }
 };
