@@ -1,7 +1,14 @@
 {
+  "version": 2,
   "functions": {
     "api/deploy.js": {
       "maxDuration": 60
     }
-  }
+  },
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/deploy.js"
+    }
+  ]
 }
